@@ -7,12 +7,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Trash2 } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Plus, Trash2, Lock, Globe, Calendar, Info } from "lucide-react"
 import { createPoll } from "@/app/actions"
 import { toast } from "sonner"
 
+// Generate or retrieve creator ID from localStorage
+function getCreatorId(): string {
+  if (typeof window === "undefined") return ""
+
+  let creatorId = localStorage.getItem("polling-app-creator-id")
+  if (!creatorId) {
+    creatorId = "creator-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9)
+    localStorage.setItem("polling-app-creator-id", creatorId)
+  }
+  return creatorId
+}
+
 export default function PollForm() {
   const [options, setOptions] = useState(["", ""])
+  const [privacy, setPrivacy] = useState<"public" | "private">("public")
+  const [expiryDate, setExpiryDate] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
 
@@ -38,12 +53,19 @@ export default function PollForm() {
     setIsSubmitting(true)
 
     try {
+      // Add creator ID to form data
+      formData.append("creatorId", getCreatorId())
+
       const result = await createPoll(formData)
 
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success("Poll created successfully!")
+        if (result.accessCode) {
+          toast.success(`Poll created successfully! Access code: ${result.accessCode}`, { duration: 10000 })
+        } else {
+          toast.success("Poll created successfully!")
+        }
         router.push("/polls")
       }
     } catch (error) {
@@ -53,11 +75,16 @@ export default function PollForm() {
     }
   }
 
+  // Get minimum date (tomorrow)
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const minDate = tomorrow.toISOString().split("T")[0]
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Poll Details</CardTitle>
-        <CardDescription>Enter your question and provide at least 2 answer options</CardDescription>
+        <CardDescription>Enter your question, set privacy, and configure expiration</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={handleSubmit} className="space-y-6">
@@ -98,6 +125,57 @@ export default function PollForm() {
                 )}
               </div>
             ))}
+          </div>
+
+          <div className="space-y-4">
+            <Label>Privacy Setting *</Label>
+            <RadioGroup value={privacy} onValueChange={(value: "public" | "private") => setPrivacy(value)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="public" id="public" />
+                <Label htmlFor="public" className="flex items-center gap-2 cursor-pointer">
+                  <Globe className="w-4 h-4" />
+                  Public - Anyone can see and vote
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="private" id="private" />
+                <Label htmlFor="private" className="flex items-center gap-2 cursor-pointer">
+                  <Lock className="w-4 h-4" />
+                  Private - Only people with access code can participate
+                </Label>
+              </div>
+            </RadioGroup>
+            <input type="hidden" name="privacy" value={privacy} />
+
+            {privacy === "private" && (
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium">Private Poll</p>
+                    <p>An access code will be generated that you can share with specific people.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="expiryDate" className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Expiry Date (Optional)
+            </Label>
+            <Input
+              type="date"
+              id="expiryDate"
+              name="expiryDate"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              min={minDate}
+            />
+            <p className="text-xs text-gray-500">
+              Leave empty for polls that never expire. Expired polls will stop accepting votes.
+            </p>
           </div>
 
           <div className="flex gap-4 pt-4">

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { votePoll, hasUserVoted, type Poll } from "@/app/actions"
 import { toast } from "sonner"
 import { Lock, Globe, Calendar, Clock, Key } from "lucide-react"
+import PollShareButton from "@/components/poll-share-button"
 
 interface PollCardProps {
   poll: Poll
@@ -229,6 +230,7 @@ export default function PollCard({ poll, userAccessCodes = [] }: PollCardProps) 
                 Expired
               </Badge>
             )}
+            <PollShareButton pollId={poll.id} question={poll.question} accessCode={poll.accessCode} />
           </div>
         </div>
         <CardDescription>

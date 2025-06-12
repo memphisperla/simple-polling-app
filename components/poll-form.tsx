@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Plus, Trash2, Lock, Globe, Calendar, Info } from "lucide-react"
 import { createPoll } from "@/app/actions"
 import { toast } from "sonner"
+import PollSuccess from "@/components/poll-success"
 
 // Generate or retrieve creator ID from localStorage
 function getCreatorId(): string {
@@ -29,6 +30,11 @@ export default function PollForm() {
   const [privacy, setPrivacy] = useState<"public" | "private">("public")
   const [expiryDate, setExpiryDate] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [createdPoll, setCreatedPoll] = useState<{
+    id: string
+    question: string
+    accessCode?: string
+  } | null>(null)
   const router = useRouter()
 
   const addOption = () => {
@@ -61,12 +67,18 @@ export default function PollForm() {
       if (result.error) {
         toast.error(result.error)
       } else {
+        // Store the created poll info instead of redirecting immediately
+        setCreatedPoll({
+          id: result.pollId!,
+          question: formData.get("question") as string,
+          accessCode: result.accessCode,
+        })
+
         if (result.accessCode) {
           toast.success(`Poll created successfully! Access code: ${result.accessCode}`, { duration: 10000 })
         } else {
           toast.success("Poll created successfully!")
         }
-        router.push("/polls")
       }
     } catch (error) {
       toast.error("Failed to create poll")
@@ -80,6 +92,12 @@ export default function PollForm() {
   tomorrow.setDate(tomorrow.getDate() + 1)
   const minDate = tomorrow.toISOString().split("T")[0]
 
+  // Show success page if poll was created
+  if (createdPoll) {
+    return <PollSuccess pollId={createdPoll.id} question={createdPoll.question} accessCode={createdPoll.accessCode} />
+  }
+
+  // Otherwise show the form (keep existing form JSX)
   return (
     <Card>
       <CardHeader>

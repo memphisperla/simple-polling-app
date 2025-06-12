@@ -233,30 +233,32 @@ export default function PollCard({ poll, userAccessCodes = [] }: PollCardProps) 
             <PollShareButton pollId={poll.id} question={poll.question} accessCode={poll.accessCode} />
           </div>
         </div>
-        <CardDescription>
-          <div className="space-y-1">
-            <div>
-              Created on {formatDate(poll.createdAt)} • {totalVotes} total votes
+        <CardDescription asChild>
+          <div>
+            <div className="space-y-1">
+              <div>
+                Created on {formatDate(poll.createdAt)} • {totalVotes} total votes
+              </div>
+              {poll.expiryDate && (
+                <div className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {isExpired ? (
+                    <span className="text-red-600">Expired on {formatDate(poll.expiryDate)}</span>
+                  ) : (
+                    <span>
+                      Expires {formatDate(poll.expiryDate)} • {getTimeUntilExpiry()}
+                    </span>
+                  )}
+                </div>
+              )}
+              {hasVoted && <span className="text-green-600">• You have voted</span>}
+              {isCreator && <span className="text-blue-600">• You created this poll</span>}
+              {poll.privacy === "private" && isCreator && (
+                <div className="text-xs bg-blue-50 p-2 rounded mt-2">
+                  <strong>Access Code:</strong> {poll.accessCode}
+                </div>
+              )}
             </div>
-            {poll.expiryDate && (
-              <div className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                {isExpired ? (
-                  <span className="text-red-600">Expired on {formatDate(poll.expiryDate)}</span>
-                ) : (
-                  <span>
-                    Expires {formatDate(poll.expiryDate)} • {getTimeUntilExpiry()}
-                  </span>
-                )}
-              </div>
-            )}
-            {hasVoted && <span className="text-green-600">• You have voted</span>}
-            {isCreator && <span className="text-blue-600">• You created this poll</span>}
-            {poll.privacy === "private" && isCreator && (
-              <div className="text-xs bg-blue-50 p-2 rounded mt-2">
-                <strong>Access Code:</strong> {poll.accessCode}
-              </div>
-            )}
           </div>
         </CardDescription>
       </CardHeader>

@@ -62,14 +62,18 @@ export default function PollViewer({ pollId, accessCode }: PollViewerProps) {
   if (loading) {
     return (
       <div className="animate-pulse">
-        <div className="bg-white rounded-lg border p-6">
-          <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-          <div className="space-y-2">
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 rounded w-full"></div>
+              <div className="h-4 bg-gray-200 rounded w-full"></div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -82,14 +86,14 @@ export default function PollViewer({ pollId, accessCode }: PollViewerProps) {
             <AlertCircle className="w-5 h-5" />
             Poll Not Available
           </CardTitle>
-          <CardDescription>
-            {error || "The poll you're looking for doesn't exist or you don't have permission to view it."}
+          <CardDescription asChild>
+            <div>{error || "The poll you're looking for doesn't exist or you don't have permission to view it."}</div>
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600">
             If this is a private poll, make sure you have the correct access code in the URL.
-          </p>
+          </div>
         </CardContent>
       </Card>
     )

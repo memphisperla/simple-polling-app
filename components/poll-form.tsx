@@ -102,7 +102,9 @@ export default function PollForm() {
     <Card>
       <CardHeader>
         <CardTitle>Poll Details</CardTitle>
-        <CardDescription>Enter your question, set privacy, and configure expiration</CardDescription>
+        <CardDescription asChild>
+          <div>Enter your question, set privacy, and configure expiration</div>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form action={handleSubmit} className="space-y-6">

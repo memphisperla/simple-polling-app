@@ -101,7 +101,9 @@ export default function QRCodeGenerator({ pollId, accessCode, question }: QRCode
           <QrCode className="w-5 h-5" />
           Share Your Poll
         </CardTitle>
-        <CardDescription>Share this QR code and link to let others access your poll</CardDescription>
+        <CardDescription asChild>
+          <div>Share this QR code and link to let others access your poll</div>
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* QR Code Display */}

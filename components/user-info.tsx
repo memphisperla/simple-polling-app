@@ -70,7 +70,9 @@ export default function UserInfo() {
           <User className="w-5 h-5" />
           Your Identity & Access
         </CardTitle>
-        <CardDescription>Manage your voting identity and private poll access</CardDescription>
+        <CardDescription asChild>
+          <div>Manage your voting identity and private poll access</div>
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>

@@ -16,7 +16,31 @@ export interface Poll {
 }
 
 // In-memory storage (in a real app, you'd use a database)
-const polls: Poll[] = []
+const polls: Poll[] = [
+  {
+    id: "1749739632602",
+    question: "What's your favorite programming language?",
+    options: ["JavaScript", "Python", "TypeScript", "Go"],
+    votes: [5, 8, 12, 3],
+    voters: ["user-123", "user-456", "user-789"],
+    createdAt: new Date(Date.now() - 86400000), // 1 day ago
+    expiryDate: new Date(Date.now() + 604800000), // 1 week from now
+    privacy: "public",
+    creatorId: "creator-sample-123",
+  },
+  {
+    id: "1749739632603",
+    question: "Best time for team meetings?",
+    options: ["Morning", "Afternoon", "Evening"],
+    votes: [15, 8, 2],
+    voters: ["user-111", "user-222", "user-333", "user-444"],
+    createdAt: new Date(Date.now() - 43200000), // 12 hours ago
+    expiryDate: null,
+    privacy: "private",
+    creatorId: "creator-sample-456",
+    accessCode: "TEAM2024",
+  },
+]
 
 export async function createPoll(formData: FormData) {
   const question = formData.get("question") as string

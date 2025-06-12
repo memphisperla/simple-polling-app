@@ -22,13 +22,15 @@ export default function PollSuccess({ pollId, question, accessCode }: PollSucces
             <CheckCircle className="w-5 h-5" />
             Poll Created Successfully!
           </CardTitle>
-          <CardDescription className="text-green-700">
-            Your poll "{question}" is now live and ready for votes.
-            {accessCode && (
-              <span className="block mt-1 font-medium">
-                Access Code: <code className="bg-green-100 px-2 py-1 rounded">{accessCode}</code>
-              </span>
-            )}
+          <CardDescription asChild>
+            <div className="text-green-700">
+              Your poll "{question}" is now live and ready for votes.
+              {accessCode && (
+                <span className="block mt-1 font-medium">
+                  Access Code: <code className="bg-green-100 px-2 py-1 rounded">{accessCode}</code>
+                </span>
+              )}
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent>

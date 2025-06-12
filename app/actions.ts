@@ -7,6 +7,7 @@ export interface Poll {
   question: string
   options: string[]
   votes: number[]
+  voters: string[] // Track user IDs who have voted
   createdAt: Date
 }
 
@@ -42,6 +43,7 @@ export async function createPoll(formData: FormData) {
     question: question.trim(),
     options: validOptions.map((option) => option.trim()),
     votes: new Array(validOptions.length).fill(0),
+    voters: [], // Initialize empty voters array
     createdAt: new Date(),
   }
 
@@ -55,7 +57,7 @@ export async function getPolls(): Promise<Poll[]> {
   return polls.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 }
 
-export async function votePoll(pollId: string, optionIndex: number) {
+export async function votePoll(pollId: string, optionIndex: number, userId: string) {
   const poll = polls.find((p) => p.id === pollId)
   if (!poll) {
     return { error: "Poll not found" }
@@ -65,8 +67,19 @@ export async function votePoll(pollId: string, optionIndex: number) {
     return { error: "Invalid option" }
   }
 
+  // Check if user has already voted
+  if (poll.voters.includes(userId)) {
+    return { error: "You have already voted on this poll" }
+  }
+
   poll.votes[optionIndex]++
+  poll.voters.push(userId) // Track the voter
   revalidatePath("/polls")
 
   return { success: true }
+}
+
+export async function hasUserVoted(pollId: string, userId: string): Promise<boolean> {
+  const poll = polls.find((p) => p.id === pollId)
+  return poll ? poll.voters.includes(userId) : false
 }

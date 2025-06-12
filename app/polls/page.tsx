@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import PollList from "@/components/poll-list"
+import UserInfo from "@/components/user-info"
 
 export default function PollsPage() {
   return (
@@ -18,6 +19,7 @@ export default function PollsPage() {
           <p className="text-gray-600 mt-2">Browse all created polls</p>
         </div>
 
+        <UserInfo />
         <PollList />
       </div>
     </div>

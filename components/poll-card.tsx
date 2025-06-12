@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { votePoll, hasUserVoted, type Poll } from "@/app/actions"
+import { votePoll, hasUserVoted, refreshPollData, type Poll } from "@/app/actions"
 import { toast } from "sonner"
-import { Lock, Globe, Calendar, Clock, Key } from "lucide-react"
+import { Lock, Globe, Calendar, Clock, Key, RefreshCw } from "lucide-react"
 import PollShareButton from "@/components/poll-share-button"
 
 interface PollCardProps {
@@ -36,11 +36,13 @@ function getCreatorId(): string {
   return localStorage.getItem("polling-app-creator-id") || ""
 }
 
-export default function PollCard({ poll, userAccessCodes = [] }: PollCardProps) {
+export default function PollCard({ poll: initialPoll, userAccessCodes = [] }: PollCardProps) {
+  const [poll, setPoll] = useState<Poll>(initialPoll)
   const [selectedOption, setSelectedOption] = useState<string>("")
   const [hasVoted, setHasVoted] = useState(false)
   const [isVoting, setIsVoting] = useState(false)
   const [isCheckingVote, setIsCheckingVote] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [userId, setUserId] = useState<string>("")
   const [accessCode, setAccessCode] = useState<string>("")
   const [showAccessInput, setShowAccessInput] = useState(false)
@@ -85,6 +87,21 @@ export default function PollCard({ poll, userAccessCodes = [] }: PollCardProps) 
     checkVoteStatus()
   }, [poll.id, poll.creatorId, poll.privacy, poll.accessCode, userAccessCodes])
 
+  const refreshPoll = async () => {
+    setIsRefreshing(true)
+    try {
+      const updatedPoll = await refreshPollData(poll.id)
+      if (updatedPoll) {
+        setPoll(updatedPoll)
+        toast.success("Poll data refreshed!")
+      }
+    } catch (error) {
+      toast.error("Failed to refresh poll data")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   const handleVote = async () => {
     if (!selectedOption || !userId) return
 
@@ -102,7 +119,12 @@ export default function PollCard({ poll, userAccessCodes = [] }: PollCardProps) 
       } else {
         setHasVoted(true)
         toast.success("Vote recorded!")
-        window.location.reload()
+
+        // Refresh poll data to show updated results
+        const updatedPoll = await refreshPollData(poll.id)
+        if (updatedPoll) {
+          setPoll(updatedPoll)
+        }
       }
     } catch (error) {
       toast.error("Failed to record vote")
@@ -230,6 +252,10 @@ export default function PollCard({ poll, userAccessCodes = [] }: PollCardProps) 
                 Expired
               </Badge>
             )}
+            <Button variant="outline" size="sm" onClick={refreshPoll} disabled={isRefreshing}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
             <PollShareButton pollId={poll.id} question={poll.question} accessCode={poll.accessCode} />
           </div>
         </div>

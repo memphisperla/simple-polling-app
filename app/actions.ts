@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { supabase } from "@/lib/supabase"
 
 export interface Poll {
   id: string
@@ -15,32 +16,21 @@ export interface Poll {
   accessCode?: string // Access code for private polls
 }
 
-// In-memory storage (in a real app, you'd use a database)
-const polls: Poll[] = [
-  {
-    id: "1749739632602",
-    question: "What's your favorite programming language?",
-    options: ["JavaScript", "Python", "TypeScript", "Go"],
-    votes: [5, 8, 12, 3],
-    voters: ["user-123", "user-456", "user-789"],
-    createdAt: new Date(Date.now() - 86400000), // 1 day ago
-    expiryDate: new Date(Date.now() + 604800000), // 1 week from now
-    privacy: "public",
-    creatorId: "creator-sample-123",
-  },
-  {
-    id: "1749739632603",
-    question: "Best time for team meetings?",
-    options: ["Morning", "Afternoon", "Evening"],
-    votes: [15, 8, 2],
-    voters: ["user-111", "user-222", "user-333", "user-444"],
-    createdAt: new Date(Date.now() - 43200000), // 12 hours ago
-    expiryDate: null,
-    privacy: "private",
-    creatorId: "creator-sample-456",
-    accessCode: "TEAM2024",
-  },
-]
+// Convert database row to Poll interface
+function dbRowToPoll(row: any): Poll {
+  return {
+    id: row.id,
+    question: row.question,
+    options: row.options,
+    votes: row.votes,
+    voters: row.voters,
+    createdAt: new Date(row.created_at),
+    expiryDate: row.expiry_date ? new Date(row.expiry_date) : null,
+    privacy: row.privacy,
+    creatorId: row.creator_id,
+    accessCode: row.access_code,
+  }
+}
 
 export async function createPoll(formData: FormData) {
   const question = formData.get("question") as string
@@ -69,114 +59,210 @@ export async function createPoll(formData: FormData) {
   }
 
   // Validate expiry date
-  let parsedExpiryDate: Date | null = null
+  let parsedExpiryDate: string | null = null
   if (expiryDate) {
-    parsedExpiryDate = new Date(expiryDate)
-    if (parsedExpiryDate <= new Date()) {
+    const expiry = new Date(expiryDate)
+    if (expiry <= new Date()) {
       return { error: "Expiry date must be in the future" }
     }
+    parsedExpiryDate = expiry.toISOString()
   }
 
   // Generate access code for private polls
-  const accessCode = privacy === "private" ? Math.random().toString(36).substr(2, 8).toUpperCase() : undefined
+  const accessCode = privacy === "private" ? Math.random().toString(36).substr(2, 8).toUpperCase() : null
 
-  // Create new poll
-  const newPoll: Poll = {
-    id: Date.now().toString(),
-    question: question.trim(),
-    options: validOptions.map((option) => option.trim()),
-    votes: new Array(validOptions.length).fill(0),
-    voters: [],
-    createdAt: new Date(),
-    expiryDate: parsedExpiryDate,
-    privacy,
-    creatorId,
-    accessCode,
-  }
+  try {
+    // Insert poll into database
+    const { data, error } = await supabase
+      .from("polls")
+      .insert({
+        question: question.trim(),
+        options: validOptions.map((option) => option.trim()),
+        votes: new Array(validOptions.length).fill(0),
+        voters: [],
+        expiry_date: parsedExpiryDate,
+        privacy,
+        creator_id: creatorId,
+        access_code: accessCode,
+      })
+      .select()
+      .single()
 
-  polls.push(newPoll)
-  revalidatePath("/polls")
+    if (error) {
+      console.error("Database error:", error)
+      return { error: "Failed to create poll. Please try again." }
+    }
 
-  return {
-    success: true,
-    pollId: newPoll.id,
-    accessCode: accessCode, // Return access code for private polls
+    revalidatePath("/polls")
+
+    return {
+      success: true,
+      pollId: data.id,
+      accessCode: accessCode,
+    }
+  } catch (error) {
+    console.error("Unexpected error:", error)
+    return { error: "An unexpected error occurred. Please try again." }
   }
 }
 
 export async function getPolls(userId: string, accessCodes: string[] = []): Promise<Poll[]> {
-  const now = new Date()
+  try {
+    const query = supabase.from("polls").select("*").order("created_at", { ascending: false })
 
-  return polls
-    .filter((poll) => {
+    const { data, error } = await query
+
+    if (error) {
+      console.error("Database error:", error)
+      return []
+    }
+
+    if (!data) return []
+
+    // Filter polls based on privacy and access
+    const filteredPolls = data.filter((poll) => {
       // Show public polls to everyone
       if (poll.privacy === "public") return true
 
       // Show private polls to creator
-      if (poll.creatorId === userId) return true
+      if (poll.creator_id === userId) return true
 
       // Show private polls if user has access code
-      if (poll.accessCode && accessCodes.includes(poll.accessCode)) return true
+      if (poll.access_code && accessCodes.includes(poll.access_code)) return true
 
       return false
     })
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
+    return filteredPolls.map(dbRowToPoll)
+  } catch (error) {
+    console.error("Unexpected error:", error)
+    return []
+  }
 }
 
 export async function getPollById(pollId: string, userId: string, accessCode?: string): Promise<Poll | null> {
-  const poll = polls.find((p) => p.id === pollId)
-  if (!poll) return null
+  try {
+    const { data, error } = await supabase.from("polls").select("*").eq("id", pollId).single()
 
-  // Check access permissions
-  if (poll.privacy === "private") {
-    if (poll.creatorId !== userId && poll.accessCode !== accessCode) {
+    if (error || !data) {
       return null
     }
-  }
 
-  return poll
+    // Check access permissions
+    if (data.privacy === "private") {
+      if (data.creator_id !== userId && data.access_code !== accessCode) {
+        return null
+      }
+    }
+
+    return dbRowToPoll(data)
+  } catch (error) {
+    console.error("Unexpected error:", error)
+    return null
+  }
 }
 
 export async function votePoll(pollId: string, optionIndex: number, userId: string, accessCode?: string) {
-  const poll = polls.find((p) => p.id === pollId)
-  if (!poll) {
-    return { error: "Poll not found" }
-  }
+  try {
+    // First, get the current poll data
+    const { data: pollData, error: fetchError } = await supabase.from("polls").select("*").eq("id", pollId).single()
 
-  // Check access permissions
-  if (poll.privacy === "private") {
-    if (poll.creatorId !== userId && poll.accessCode !== accessCode) {
-      return { error: "Access denied. Invalid access code." }
+    if (fetchError || !pollData) {
+      return { error: "Poll not found" }
     }
+
+    // Check access permissions
+    if (pollData.privacy === "private") {
+      if (pollData.creator_id !== userId && pollData.access_code !== accessCode) {
+        return { error: "Access denied. Invalid access code." }
+      }
+    }
+
+    // Check if poll has expired
+    if (pollData.expiry_date && new Date() > new Date(pollData.expiry_date)) {
+      return { error: "This poll has expired and is no longer accepting votes" }
+    }
+
+    if (optionIndex < 0 || optionIndex >= pollData.options.length) {
+      return { error: "Invalid option" }
+    }
+
+    // Check if user has already voted
+    if (pollData.voters.includes(userId)) {
+      return { error: "You have already voted on this poll" }
+    }
+
+    // Update votes and voters
+    const newVotes = [...pollData.votes]
+    newVotes[optionIndex]++
+    const newVoters = [...pollData.voters, userId]
+
+    // Update the poll in the database
+    const { error: updateError } = await supabase
+      .from("polls")
+      .update({
+        votes: newVotes,
+        voters: newVoters,
+      })
+      .eq("id", pollId)
+
+    if (updateError) {
+      console.error("Database error:", updateError)
+      return { error: "Failed to record vote. Please try again." }
+    }
+
+    revalidatePath("/polls")
+    revalidatePath(`/poll/${pollId}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error("Unexpected error:", error)
+    return { error: "An unexpected error occurred. Please try again." }
   }
-
-  // Check if poll has expired
-  if (poll.expiryDate && new Date() > poll.expiryDate) {
-    return { error: "This poll has expired and is no longer accepting votes" }
-  }
-
-  if (optionIndex < 0 || optionIndex >= poll.options.length) {
-    return { error: "Invalid option" }
-  }
-
-  // Check if user has already voted
-  if (poll.voters.includes(userId)) {
-    return { error: "You have already voted on this poll" }
-  }
-
-  poll.votes[optionIndex]++
-  poll.voters.push(userId)
-  revalidatePath("/polls")
-
-  return { success: true }
 }
 
 export async function hasUserVoted(pollId: string, userId: string): Promise<boolean> {
-  const poll = polls.find((p) => p.id === pollId)
-  return poll ? poll.voters.includes(userId) : false
+  try {
+    const { data, error } = await supabase.from("polls").select("voters").eq("id", pollId).single()
+
+    if (error || !data) {
+      return false
+    }
+
+    return data.voters.includes(userId)
+  } catch (error) {
+    console.error("Unexpected error:", error)
+    return false
+  }
 }
 
 export async function verifyAccessCode(pollId: string, accessCode: string): Promise<boolean> {
-  const poll = polls.find((p) => p.id === pollId)
-  return poll ? poll.accessCode === accessCode : false
+  try {
+    const { data, error } = await supabase.from("polls").select("access_code").eq("id", pollId).single()
+
+    if (error || !data) {
+      return false
+    }
+
+    return data.access_code === accessCode
+  } catch (error) {
+    console.error("Unexpected error:", error)
+    return false
+  }
+}
+
+// Helper function to get real-time poll data
+export async function refreshPollData(pollId: string): Promise<Poll | null> {
+  try {
+    const { data, error } = await supabase.from("polls").select("*").eq("id", pollId).single()
+
+    if (error || !data) {
+      return null
+    }
+
+    return dbRowToPoll(data)
+  } catch (error) {
+    console.error("Unexpected error:", error)
+    return null
+  }
 }
